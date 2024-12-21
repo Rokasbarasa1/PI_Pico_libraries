@@ -260,7 +260,7 @@ volatile int8_t m_added_offset_precision_power = -2;
 volatile uint8_t flight_mode = 0;
 
 // State of remote settings
-volatile uint8_t m_average_sample_size = 40;
+volatile uint8_t m_average_sample_size = 10;
 
 // State of triggered actions
 bool action_apply_pid_to_slave = false;
@@ -1530,6 +1530,11 @@ void screen_menu_logic(){
     if (action_apply_all_settings){
         action_apply_all_settings = false;
 
+        apply_pid_to_slave();
+        sleep_ms(5000);
+        apply_accelerometer_correction_to_slave();
+        sleep_ms(5000);
+        apply_flight_mode_to_slave();
     }
 }
 

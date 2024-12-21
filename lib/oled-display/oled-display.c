@@ -4,6 +4,7 @@
 
 #define COMMAND_REG 0x80
 #define DATA_REG 0x40
+#define TEST_ID_REG 0xD0
 
 #define NORMAL_DISPLAY_CMD 0xAF
 #define PAGE_ADDRESSING_MODE 0x02

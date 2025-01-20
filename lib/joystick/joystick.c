@@ -7,13 +7,24 @@
 // but the ground (black wire) on them is the output and the output (yellow wire) is the output
 // I measured the ranges of voltage output from these and put the data next to the values of adc input
 
+// OLD
 // Min      - 1469
 // Min high - 1489
 // Max low  - 2872
 // Max      - 2936
+
+// NEW
+float adc_throttle_min = 1469.0f;
+float adc_throttle_high_min = 1489.0f;
+float adc_throttle_max_low = 2872.0f;
+float adc_throttle_max = 2936.0f;
+
+float adc_throttle_mid_adjustment = 0.0f;
+
 volatile uint adc_throttle = 0;
 volatile uint adc_throttle_array[MAX_AVERAGING_SAMPLE_SIZE];
 
+// OLD
 // Min      - 1534
 // High min - 1568      high Min to avg - 945
 // Mid low  - 2428
@@ -21,9 +32,22 @@ volatile uint adc_throttle_array[MAX_AVERAGING_SAMPLE_SIZE];
 // MId high - 2548
 // Low max  - 3163      low Max to avg - 761
 // Max      - 3240
+
+// NEW
+float adc_yaw_min = 1534.0f;
+float adc_yaw_high_min = 1568.0f;
+float adc_yaw_mid_low = 2428.0f;
+float adc_yaw_avg = 2479.0f;
+float adc_yaw_mid_high = 2548.0f;
+float adc_yaw_low_max = 3163.0f;
+float adc_yaw_max = 3240.0f;
+
+float adc_yaw_mid_adjustment = -107.0f;
+
 volatile uint adc_yaw = 0;
 volatile uint adc_yaw_array[MAX_AVERAGING_SAMPLE_SIZE];
 
+// OLD
 // Min      - 1278
 // High min - 1305      high Min to avg - 762
 // Mid low  - 2002
@@ -31,9 +55,22 @@ volatile uint adc_yaw_array[MAX_AVERAGING_SAMPLE_SIZE];
 // MId high - 2104
 // Low max  - 2810      low Max to avg - 829
 // Max      - 2869
+
+// NEW
+float adc_pitch_min = 1457.0f;
+float adc_pitch_high_min = 1480.0f;
+float adc_pitch_mid_low = 2170.0f;
+float adc_pitch_avg = 2197.0f;
+float adc_pitch_mid_high = 2227.0f;
+float adc_pitch_low_max = 2874.0f;
+float adc_pitch_max = 2942.0f;
+
+float adc_pitch_mid_adjustment = 67.0f;
+
 volatile uint adc_pitch = 0;
 volatile uint adc_pitch_array[MAX_AVERAGING_SAMPLE_SIZE];
 
+// OLD
 // Min      - 1457
 // High min - 1480      high Min to avg - 740
 // Mid low  - 2170
@@ -41,10 +78,22 @@ volatile uint adc_pitch_array[MAX_AVERAGING_SAMPLE_SIZE];
 // MId high - 2227
 // Low max  - 2874      low Max to avg - 745
 // Max      - 2942
+
+// NEW
+float adc_roll_min = 1278.0f;
+float adc_roll_high_min = 1305.0f;
+float adc_roll_mid_low = 2002.0f;
+float adc_roll_avg = 2040.0f;
+float adc_roll_mid_high = 2104.0f;
+float adc_roll_low_max = 2810.0f;
+float adc_roll_max = 2869.0f;
+
+float adc_roll_mid_adjustment = -4.0f;
+
 volatile uint adc_roll = 0;
 volatile uint adc_roll_array[MAX_AVERAGING_SAMPLE_SIZE];
 
-volatile float deadzone = 5;
+volatile float deadzone = 0;
 
 volatile uint16_t averaging_sample_size = 20;
 volatile uint16_t averaging_sample_array_index = 0;
@@ -64,9 +113,10 @@ bool joystick_repeating_timer_callback(struct repeating_timer *t){
     {
         case 0:
             adc_select_input(0);
-            adc_throttle = adc_read();
-
-            adc_throttle_array[averaging_sample_array_index] = adc_throttle;
+            for(uint8_t i = 0; i < averaging_sample_size; i++){
+                adc_throttle = adc_read();
+                adc_throttle_array[i] = adc_throttle;
+            }
             // Change which one to use after reading
             // so the changes have propagated by the next read
             gpio_put(3, 0);
@@ -74,25 +124,28 @@ bool joystick_repeating_timer_callback(struct repeating_timer *t){
             break;
         case 1:
             adc_select_input(0);
-            adc_yaw = adc_read();
-
-            adc_yaw_array[averaging_sample_array_index] = adc_yaw;
+            for(uint8_t i = 0; i < averaging_sample_size; i++){
+                adc_yaw = adc_read();
+                adc_yaw_array[i] = adc_yaw;
+            }
 
             gpio_put(3, 0);
             gpio_put(6, 0);
             break;
         case 2:
             adc_select_input(1);
-            adc_pitch = adc_read();
-
-            adc_pitch_array[averaging_sample_array_index] = adc_pitch;
+            for(uint8_t i = 0; i < averaging_sample_size; i++){
+                adc_roll = adc_read();
+                adc_roll_array[i] = adc_roll;
+            }
 
             break;
         case 3:
             adc_select_input(2);
-            adc_roll = adc_read();
-
-            adc_roll_array[averaging_sample_array_index] = adc_roll;
+            for(uint8_t i = 0; i < averaging_sample_size; i++){
+                adc_pitch = adc_read();
+                adc_pitch_array[i] = adc_pitch;
+            }
 
             break;
         default:
@@ -103,11 +156,11 @@ bool joystick_repeating_timer_callback(struct repeating_timer *t){
     axis_index++;
 
 
-    if(axis_index == 4){
-        // Increment the averaging index
-        averaging_sample_array_index++;
-        averaging_sample_array_index = averaging_sample_array_index % averaging_sample_size;
-    }
+    // if(axis_index == 4){
+    //     // Increment the averaging index
+    //     averaging_sample_array_index++;
+    //     averaging_sample_array_index = averaging_sample_array_index % averaging_sample_size;
+    // }
     axis_index = axis_index % 4;
     return true;
 }
@@ -164,7 +217,7 @@ float joystick_get_throttle_percent(){
     float average_throttle = average_throttle_sum / (float) averaging_sample_size;
 
     // Calculate percent value
-    float percent_value = (((float)average_throttle-1489.0)*100.0)/(2872.0-1489.0);
+    float percent_value = (((float)average_throttle-adc_throttle_high_min+adc_throttle_mid_adjustment)*100.0)/(adc_throttle_max_low-adc_throttle_high_min);
     
     // Doesn't have a deadzone in center
 
@@ -187,7 +240,7 @@ float joystick_get_yaw_percent(){
     float average_yaw = average_yaw_sum / (float) averaging_sample_size;
 
     // Calculate average value
-    float percent_value = (((float)average_yaw-1568.0-107.0)*100.0)/(3163.0-1568.0);
+    float percent_value = (((float)average_yaw-adc_yaw_high_min+adc_yaw_mid_adjustment)*100.0)/(adc_yaw_low_max-adc_yaw_high_min);
     
     // Calculate deadzone
     if(percent_value < 50.0 + deadzone && percent_value > 50.0 - deadzone){
@@ -217,7 +270,7 @@ float joystick_get_pitch_percent(){
     float average_pitch = average_pitch_sum / (float) averaging_sample_size;
 
     // Calculate percent value
-    float percent_value = (((float)average_pitch-1305.0-4.0)*100.0)/(2810.0-1305.0);
+    float percent_value = (((float)average_pitch-adc_pitch_high_min+adc_pitch_mid_adjustment)*100.0)/(adc_pitch_low_max-adc_pitch_high_min);
     
     // Calculate deadzone
     if(percent_value < 50.0 + deadzone && percent_value > 50.0 - deadzone){
@@ -247,7 +300,7 @@ float joystick_get_roll_percent(){
     float average_roll = average_roll_sum / (float) averaging_sample_size;
 
     // Calculate percent value
-    float percent_value = (((float)average_roll-1568.0+67.0)*100.0)/(2874.0-1480.0);
+    float percent_value = (((float)average_roll-adc_roll_high_min+adc_roll_mid_adjustment)*100.0)/(adc_roll_low_max-adc_roll_high_min);
     
     // Calculate deadzone
     if(percent_value < 50.0 + deadzone && percent_value > 50.0 - deadzone){
@@ -293,4 +346,13 @@ void joystick_set_averaging_sample_size(uint8_t sample_size){
     
     averaging_sample_size = sample_size;
     averaging_sample_array_index = 0;
+}
+
+void joystick_set_deadzone(float deadzone_value){
+    if(deadzone_value < 0.0 || deadzone_value > 50.0){
+        return;
+        printf("Deadzone value is not allowed: %f\n", deadzone_value);
+    }
+
+    deadzone = deadzone_value;
 }

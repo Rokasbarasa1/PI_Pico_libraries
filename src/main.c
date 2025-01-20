@@ -165,11 +165,17 @@ uint8_t* pid_tune_mode_edit_strings[] = {
 
 enum t_remote_settings_mode {
     REMOTE_SETTINGS_MODE_NONE,
-    REMOTE_SETTINGS_MODE_EDIT_ADC_SAMPLE_SIZE
+    REMOTE_SETTINGS_MODE_EDIT_ADC_SAMPLE_SIZE,
+    REMOTE_SETTINGS_MODE_EDIT_SWAP_JOYSTICKS,
+    REMOTE_SETTINGS_MODE_EDIT_STICK_CALIBRATION,
+    REMOTE_SETTINGS_MODE_EDIT_STICK_DEADZONE
 };
 uint8_t* remote_settings_strings[] = {
     (uint8_t*)"Back",
-    (uint8_t*)"Edit adc sample size"
+    (uint8_t*)"Edit adc sample size",
+    (uint8_t*)"Swap joysticks",
+    (uint8_t*)"Stick calibration",
+    (uint8_t*)"Stick deadzone",
 };
 
 enum t_correct_balance_mode {
@@ -261,6 +267,10 @@ volatile uint8_t flight_mode = 0;
 
 // State of remote settings
 volatile uint8_t m_average_sample_size = 10;
+volatile uint8_t m_joystick_swap = 0;
+volatile float m_joystick_deadzone_symetrical = 5;
+volatile double m_joystock_deadzone_precision = 0.1;
+volatile double m_added_joystock_deadzone= 0;
 
 // State of triggered actions
 bool action_apply_pid_to_slave = false;
@@ -290,7 +300,6 @@ int16_t delta_loop_time = 0;
 
 #define REFRESH_RATE_HZ 200
 
-
 int main() {
     stdio_init_all();
 
@@ -307,6 +316,7 @@ int main() {
     // ########################################################## Joysticks
     init_joystick();
     joystick_set_averaging_sample_size(m_average_sample_size);
+    joystick_set_deadzone(m_joystick_deadzone_symetrical);
     printf("Joystick initialized\n");
 
     // ########################################################## Button interrupts
@@ -347,11 +357,20 @@ int main() {
     while (true) {
         screen_menu_logic();
         if(current_mode == MODE_CONTROL){
-            m_float_throttle = joystick_get_throttle_percent();
-            m_float_yaw = joystick_get_yaw_percent();
-            m_float_pitch = joystick_get_pitch_percent();
-            m_float_roll = joystick_get_roll_percent();
-
+            if(!m_joystick_swap){
+                m_float_throttle = joystick_get_throttle_percent();
+                m_float_yaw = joystick_get_yaw_percent();
+                m_float_pitch = joystick_get_pitch_percent();
+                m_float_roll = joystick_get_roll_percent();
+            }else if(m_joystick_swap){
+                m_float_pitch = joystick_get_throttle_percent();
+                m_float_roll = joystick_get_yaw_percent();
+                m_float_throttle = joystick_get_pitch_percent();
+                m_float_yaw = joystick_get_roll_percent();
+            }
+            
+            printf("Throttle: %3.1f%% Yaw: %3.1f%% Pitch: %3.1f%% Roll: %3.1f%%\n", m_float_throttle, m_float_yaw, m_float_pitch, m_float_roll);
+            
             if(!throttle_safety_passed){
                 m_float_throttle = 0.0;
                 check_throttle_safety();
@@ -916,6 +935,50 @@ void screen_menu_logic(){
                 memset(string_buffer, 0, string_length);
 
                 oled_canvas_show();
+            }else if(current_remote_settings == REMOTE_SETTINGS_MODE_EDIT_SWAP_JOYSTICKS){
+                printf("Rendering remote settings swap joysticks setting\n");
+
+                oled_canvas_clear();
+
+                oled_canvas_write("\n", 1, true);
+                oled_canvas_write("\n", 1, true);
+
+                sprintf(string_buffer, "Swap joysticks: %s\n", m_joystick_swap ? "ON" : "OFF");
+                string_length = strlen(string_buffer);
+                oled_canvas_write(string_buffer, string_length, true);
+                memset(string_buffer, 0, string_length);
+
+                oled_canvas_show();
+            }else if(current_remote_settings == REMOTE_SETTINGS_MODE_EDIT_STICK_CALIBRATION){
+                printf("Rendering remote settings stick calibration setting\n");
+
+                oled_canvas_clear();
+
+                if(!m_joystick_swap){
+                    sprintf(string_buffer, "Twist to update\nCurrent stick position:\nThrottle: %.1f\nYaw:      %.1f\nRoll:     %.1f\nPitch:    %.1f\n", joystick_get_throttle_percent(), joystick_get_yaw_percent(), joystick_get_roll_percent(), joystick_get_pitch_percent());
+                }else if(m_joystick_swap){
+                    sprintf(string_buffer, "Twist to update\nCurrent stick position:\nThrottle: %.1f\nYaw:      %.1f\nRoll:     %.1f\nPitch:    %.1f\n", joystick_get_roll_percent(), joystick_get_pitch_percent(), joystick_get_throttle_percent(), joystick_get_yaw_percent());
+                }
+            
+                string_length = strlen(string_buffer);
+                oled_canvas_write(string_buffer, string_length, true);
+                memset(string_buffer, 0, string_length);
+
+                oled_canvas_show();
+            }else if(current_remote_settings == REMOTE_SETTINGS_MODE_EDIT_STICK_DEADZONE){
+                printf("Rendering remote settings stick deadzone setting\n");
+
+                oled_canvas_clear();
+
+                oled_canvas_write("\n", 1, true);
+                oled_canvas_write("\n", 1, true);
+
+                sprintf(string_buffer, "Not on throttle\nStick deadzone: %.1f\n", m_joystick_deadzone_symetrical);
+                string_length = strlen(string_buffer);
+                oled_canvas_write(string_buffer, string_length, true);
+                memset(string_buffer, 0, string_length);
+
+                oled_canvas_show();
             }
         }else if(current_correct_balance != old_correct_balance){
             old_correct_balance = current_correct_balance;
@@ -1318,6 +1381,55 @@ void screen_menu_logic(){
                 memset(string_buffer, 0, string_length);
 
                 oled_canvas_show();
+            }else if(current_remote_settings == REMOTE_SETTINGS_MODE_EDIT_SWAP_JOYSTICKS){
+                printf("Rendering remote settings swap joysticks REFRESH\n");
+
+                oled_canvas_clear();
+
+                m_joystick_swap = !m_joystick_swap;
+
+                oled_canvas_write("\n", 1, true);
+                oled_canvas_write("\n", 1, true);
+
+                sprintf(string_buffer, "Swap joysticks: %s\n", m_joystick_swap ? "ON" : "OFF");
+                string_length = strlen(string_buffer);
+                oled_canvas_write(string_buffer, string_length, true);
+                memset(string_buffer, 0, string_length);
+
+                oled_canvas_show();
+            }else if(current_remote_settings == REMOTE_SETTINGS_MODE_EDIT_STICK_CALIBRATION){
+                printf("Rendering remote settings stick calibration setting REFRESH\n");
+
+                oled_canvas_clear();
+
+                if(!m_joystick_swap){
+                    sprintf(string_buffer, "Twist to update\nCurrent stick position:\nThrottle: %.1f\nYaw:      %.1f\nRoll:     %.1f\nPitch:    %.1f\n", joystick_get_throttle_percent(), joystick_get_yaw_percent(), joystick_get_roll_percent(), joystick_get_pitch_percent());
+                }else if(m_joystick_swap){
+                    sprintf(string_buffer, "Twist to update\nCurrent stick position:\nThrottle: %.1f\nYaw:      %.1f\nRoll:     %.1f\nPitch:    %.1f\n", joystick_get_roll_percent(), joystick_get_pitch_percent(), joystick_get_throttle_percent(), joystick_get_yaw_percent());
+                }
+                                string_length = strlen(string_buffer);
+                oled_canvas_write(string_buffer, string_length, true);
+                memset(string_buffer, 0, string_length);
+
+                oled_canvas_show();
+            }else if(current_remote_settings == REMOTE_SETTINGS_MODE_EDIT_STICK_DEADZONE){
+                printf("Rendering remote settings stick deadzone setting REFRESH\n");
+
+                oled_canvas_clear();
+
+                oled_canvas_write("\n", 1, true);
+                oled_canvas_write("\n", 1, true);
+
+                m_joystick_deadzone_symetrical = m_joystick_deadzone_symetrical + ((rotary_encoder_1_new_value - rotary_encoder_1_old_value) * m_joystock_deadzone_precision);
+
+                joystick_set_deadzone(m_joystick_deadzone_symetrical);
+
+                sprintf(string_buffer, "Not on throttle\nStick deadzone: %.1f\n", m_joystick_deadzone_symetrical);
+                string_length = strlen(string_buffer);
+                oled_canvas_write(string_buffer, string_length, true);
+                memset(string_buffer, 0, string_length);
+
+                oled_canvas_show();
             }
 
         }else if(current_mode == MODE_CORRECT_BALANCE){
@@ -1650,8 +1762,17 @@ void button1_callback(){
             if(selected == 0){
                 current_mode = MODE_MAIN;
             }
-        }else if (current_remote_settings == REMOTE_SETTINGS_MODE_EDIT_ADC_SAMPLE_SIZE){
+        }else if(current_remote_settings == REMOTE_SETTINGS_MODE_EDIT_ADC_SAMPLE_SIZE){
             printf("Clicked on REMOTE_SETTINGS_MODE_EDIT_ADC_SAMPLE_SIZE item\n");
+            current_remote_settings = REMOTE_SETTINGS_MODE_NONE;
+        }else if(current_remote_settings == REMOTE_SETTINGS_MODE_EDIT_SWAP_JOYSTICKS){
+            printf("Clicked on REMOTE_SETTINGS_MODE_EDIT_SWAP_JOYSTICKS item\n");
+            current_remote_settings = REMOTE_SETTINGS_MODE_NONE;
+        }else if(current_remote_settings == REMOTE_SETTINGS_MODE_EDIT_STICK_CALIBRATION){
+            printf("Clicked on REMOTE_SETTINGS_MODE_EDIT_STICK_CALIBRATION item\n");
+            current_remote_settings = REMOTE_SETTINGS_MODE_NONE;
+        }else if(current_remote_settings == REMOTE_SETTINGS_MODE_EDIT_STICK_DEADZONE){
+            printf("Clicked on REMOTE_SETTINGS_MODE_EDIT_STICK_DEADZONE item\n");
             current_remote_settings = REMOTE_SETTINGS_MODE_NONE;
         }
     }else if(current_mode == MODE_CORRECT_BALANCE){

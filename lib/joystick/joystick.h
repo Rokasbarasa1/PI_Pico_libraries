@@ -23,4 +23,4 @@ float joystick_get_pitch_volts();
 float joystick_get_roll_volts();
 
 void joystick_set_averaging_sample_size(uint8_t sample_size);
-// void joystick_set_averaging_sample_size(uint8_t sample_size);
+void joystick_set_deadzone(float deadzone_value);

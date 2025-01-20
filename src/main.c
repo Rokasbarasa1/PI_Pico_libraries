@@ -369,8 +369,6 @@ int main() {
                 m_float_yaw = joystick_get_roll_percent();
             }
             
-            printf("Throttle: %3.1f%% Yaw: %3.1f%% Pitch: %3.1f%% Roll: %3.1f%%\n", m_float_throttle, m_float_yaw, m_float_pitch, m_float_roll);
-            
             if(!throttle_safety_passed){
                 m_float_throttle = 0.0;
                 check_throttle_safety();
@@ -420,8 +418,14 @@ uint16_t positive_mod(int32_t value, uint16_t value_modal){
 }
 
 void check_throttle_safety(){
-    if(joystick_get_throttle_percent() == 0.0){
-        throttle_safety_passed = true;
+    if(!m_joystick_swap){
+        if(joystick_get_throttle_percent() == 0.0){
+            throttle_safety_passed = true;
+        }
+    }else if(m_joystick_swap){
+        if(joystick_get_pitch_percent() == 0.0){
+            throttle_safety_passed = true;
+        }
     }
 }
 

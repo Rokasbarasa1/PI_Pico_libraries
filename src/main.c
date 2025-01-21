@@ -168,7 +168,8 @@ enum t_remote_settings_mode {
     REMOTE_SETTINGS_MODE_EDIT_ADC_SAMPLE_SIZE,
     REMOTE_SETTINGS_MODE_EDIT_SWAP_JOYSTICKS,
     REMOTE_SETTINGS_MODE_EDIT_STICK_CALIBRATION,
-    REMOTE_SETTINGS_MODE_EDIT_STICK_DEADZONE
+    REMOTE_SETTINGS_MODE_EDIT_STICK_DEADZONE,
+    REMOTE_SETTINGS_MODE_EDIT_THROTTLE_SAFETY
 };
 uint8_t* remote_settings_strings[] = {
     (uint8_t*)"Back",
@@ -176,6 +177,7 @@ uint8_t* remote_settings_strings[] = {
     (uint8_t*)"Swap joysticks",
     (uint8_t*)"Stick calibration",
     (uint8_t*)"Stick deadzone",
+    (uint8_t*)"Throttle safety",
 };
 
 enum t_correct_balance_mode {
@@ -270,7 +272,8 @@ volatile uint8_t m_average_sample_size = 10;
 volatile uint8_t m_joystick_swap = 0;
 volatile float m_joystick_deadzone_symetrical = 5;
 volatile double m_joystock_deadzone_precision = 0.1;
-volatile double m_added_joystock_deadzone= 0;
+
+float m_throttle_safety_value = 0.0f;
 
 // State of triggered actions
 bool action_apply_pid_to_slave = false;
@@ -368,6 +371,8 @@ int main() {
                 m_float_throttle = joystick_get_pitch_percent();
                 m_float_yaw = joystick_get_roll_percent();
             }
+
+            // PITCH HAS AN OFFSET OF +2 at the bottom position preventing the drone from arming in swap joysticks mode_select_strings
             
             if(!throttle_safety_passed){
                 m_float_throttle = 0.0;
@@ -419,12 +424,14 @@ uint16_t positive_mod(int32_t value, uint16_t value_modal){
 
 void check_throttle_safety(){
     if(!m_joystick_swap){
-        if(joystick_get_throttle_percent() == 0.0){
+        if(joystick_get_throttle_percent() <= m_throttle_safety_value){
             throttle_safety_passed = true;
+            printf("LEFT\n");
         }
     }else if(m_joystick_swap){
-        if(joystick_get_pitch_percent() == 0.0){
+        if(joystick_get_pitch_percent() <= m_throttle_safety_value){
             throttle_safety_passed = true;
+            printf("LEFT\n");
         }
     }
 }
@@ -444,7 +451,7 @@ unsigned char* generate_message_joystick_nrf24_uint(uint throttle, uint yaw, uin
 
 unsigned char* generate_message_joystick_nrf24_float(float throttle, float yaw, float pitch, float roll){
     // calculate the length of the resulting string
-    int length = snprintf(NULL, 0, "/js/%3.1f/%3.1f/%3.1f/%3.1f/  ", throttle, yaw, pitch, roll);
+    int length = snprintf(NULL, 0, "/js/%3.1f/%3.1f/%3.1f/%3.1f/  ", throttle, yaw, roll, pitch);
 
     // allocate memory for the string
     unsigned char *string = malloc(length + 1); // +1 for the null terminator
@@ -983,6 +990,18 @@ void screen_menu_logic(){
                 memset(string_buffer, 0, string_length);
 
                 oled_canvas_show();
+            }else if(current_remote_settings == REMOTE_SETTINGS_MODE_EDIT_THROTTLE_SAFETY){
+                printf("Rendering remote settings throttle safety setting\n");
+
+                oled_canvas_clear();
+
+                sprintf(string_buffer, "Value at which safety\nis shut off\nThrottle safety: %.1f\n", m_throttle_safety_value);
+
+                string_length = strlen(string_buffer);
+                oled_canvas_write(string_buffer, string_length, true);
+                memset(string_buffer, 0, string_length);
+
+                oled_canvas_show();
             }
         }else if(current_correct_balance != old_correct_balance){
             old_correct_balance = current_correct_balance;
@@ -1426,9 +1445,30 @@ void screen_menu_logic(){
 
                 m_joystick_deadzone_symetrical = m_joystick_deadzone_symetrical + ((rotary_encoder_1_new_value - rotary_encoder_1_old_value) * m_joystock_deadzone_precision);
 
+                if(m_joystick_deadzone_symetrical < 0){
+                    m_joystick_deadzone_symetrical = 0;
+                }
+
                 joystick_set_deadzone(m_joystick_deadzone_symetrical);
 
                 sprintf(string_buffer, "Not on throttle\nStick deadzone: %.1f\n", m_joystick_deadzone_symetrical);
+                string_length = strlen(string_buffer);
+                oled_canvas_write(string_buffer, string_length, true);
+                memset(string_buffer, 0, string_length);
+
+                oled_canvas_show();
+            }else if(current_remote_settings == REMOTE_SETTINGS_MODE_EDIT_THROTTLE_SAFETY){
+                printf("Rendering remote settings throttle safety setting REFRESH\n");
+
+                oled_canvas_clear();
+
+                m_throttle_safety_value = m_throttle_safety_value + ((rotary_encoder_1_new_value - rotary_encoder_1_old_value));
+                
+                if(m_throttle_safety_value < 0){
+                    m_throttle_safety_value = 0;
+                }
+
+                sprintf(string_buffer, "Value at which safety\nis shut off\nThrottle safety: %.1f\n", m_throttle_safety_value);
                 string_length = strlen(string_buffer);
                 oled_canvas_write(string_buffer, string_length, true);
                 memset(string_buffer, 0, string_length);
@@ -1777,6 +1817,9 @@ void button1_callback(){
             current_remote_settings = REMOTE_SETTINGS_MODE_NONE;
         }else if(current_remote_settings == REMOTE_SETTINGS_MODE_EDIT_STICK_DEADZONE){
             printf("Clicked on REMOTE_SETTINGS_MODE_EDIT_STICK_DEADZONE item\n");
+            current_remote_settings = REMOTE_SETTINGS_MODE_NONE;
+        }else if(current_remote_settings == REMOTE_SETTINGS_MODE_EDIT_THROTTLE_SAFETY){
+            printf("Clicked on REMOTE_SETTINGS_MODE_EDIT_THROTTLE_SAFETY item\n");
             current_remote_settings = REMOTE_SETTINGS_MODE_NONE;
         }
     }else if(current_mode == MODE_CORRECT_BALANCE){

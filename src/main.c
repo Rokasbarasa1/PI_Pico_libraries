@@ -426,12 +426,10 @@ void check_throttle_safety(){
     if(!m_joystick_swap){
         if(joystick_get_throttle_percent() <= m_throttle_safety_value){
             throttle_safety_passed = true;
-            printf("LEFT\n");
         }
     }else if(m_joystick_swap){
         if(joystick_get_pitch_percent() <= m_throttle_safety_value){
             throttle_safety_passed = true;
-            printf("LEFT\n");
         }
     }
 }

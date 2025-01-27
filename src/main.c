@@ -27,8 +27,8 @@ void apply_pid_to_slave();
 void sync_remote_with_slave();
 
 unsigned char* int_to_string(uint number);
-unsigned char* generate_message_joystick_nrf24_uint(uint throttle, uint yaw, uint pitch, uint roll);
-unsigned char* generate_message_joystick_nrf24_float(float throttle, float yaw, float pitch, float roll);
+unsigned char* generate_message_joystick_nrf24_uint(uint throttle, uint yaw, uint roll, uint pitch);
+unsigned char* generate_message_joystick_nrf24_float(float throttle, float yaw, float roll, float pitch);
 unsigned char* generate_message_pid_values_nrf24(double added_proportional, double added_integral, double added_derivative, double added_master_gain);
 unsigned char* generate_message_accelerometer_corrections_nrf24(double added_accelerometer_x_value, double added_accelerometer_y_value);
 unsigned char *generate_message_flight_mode_selection_nrf24(uint8_t flight_mode);
@@ -379,7 +379,7 @@ int main() {
                 check_throttle_safety();
             }
 
-            char *string_float = generate_message_joystick_nrf24_float(m_float_throttle, m_float_yaw, m_float_pitch, m_float_roll);
+            char *string_float = generate_message_joystick_nrf24_float(m_float_throttle, m_float_yaw, m_float_roll, m_float_pitch);
             // printf("'%s'\n", string_float);
             if(nrf24_transmit(string_float)){
                 gpio_put(2, 1);
@@ -434,20 +434,20 @@ void check_throttle_safety(){
     }
 }
 
-unsigned char* generate_message_joystick_nrf24_uint(uint throttle, uint yaw, uint pitch, uint roll){
+unsigned char* generate_message_joystick_nrf24_uint(uint throttle, uint yaw, uint roll, uint pitch){
     // calculate the length of the resulting string
-    int length = snprintf(NULL, 0, "/js/%u/%u/%u/%u/  ", throttle, yaw, pitch, roll);
+    int length = snprintf(NULL, 0, "/js/%u/%u/%u/%u/  ", throttle, yaw, roll, pitch);
 
     // allocate memory for the string
     unsigned char *string = malloc(length + 1); // +1 for the null terminator
 
     // format the string
-    snprintf((char*)string, length + 1, "/js/%u/%u/%u/%u/  ", throttle, yaw, pitch, roll);
+    snprintf((char*)string, length + 1, "/js/%u/%u/%u/%u/  ", throttle, yaw, roll, pitch);
 
     return string;
 }
 
-unsigned char* generate_message_joystick_nrf24_float(float throttle, float yaw, float pitch, float roll){
+unsigned char* generate_message_joystick_nrf24_float(float throttle, float yaw, float roll, float pitch){
     // calculate the length of the resulting string
     int length = snprintf(NULL, 0, "/js/%3.1f/%3.1f/%3.1f/%3.1f/  ", throttle, yaw, roll, pitch);
 
@@ -455,7 +455,7 @@ unsigned char* generate_message_joystick_nrf24_float(float throttle, float yaw, 
     unsigned char *string = malloc(length + 1); // +1 for the null terminator
 
     // format the string
-    snprintf((char*)string, length + 1, "/js/%3.1f/%3.1f/%3.1f/%3.1f/  ", throttle, yaw, pitch, roll);
+    snprintf((char*)string, length + 1, "/js/%3.1f/%3.1f/%3.1f/%3.1f/  ", throttle, yaw, roll, pitch);
 
     // There is no point optimizing this: (4 bytes float) * 4 + (1 byte slash) * 4 + 1 byte data type = 21
     // Raw string takes the same size + 3 bytes more
